@@ -1,0 +1,28 @@
+/// <reference types="vitest/config" />
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
+import { manifest, navigateFallbackAllowlist } from './src/pwa/manifest';
+
+export default defineConfig({
+  plugins: [
+    react(),
+    ...(!process.env.VITEST
+      ? [VitePWA({
+          registerType: 'autoUpdate',
+          injectRegister: 'auto',
+          includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
+          manifest,
+          workbox: {
+            navigateFallback: '/index.html',
+            navigateFallbackAllowlist,
+            globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+          },
+        })]
+      : []),
+  ],
+  test: {
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.ts',
+  },
+});
