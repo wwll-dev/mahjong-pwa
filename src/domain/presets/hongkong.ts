@@ -16,6 +16,7 @@ function rules(partial: Pick<HongKongRules, 'name' | 'curve' | 'startScore' | 'p
     jackpotEnabled: false,
     recordDealer: true,
     recordWind: true,
+    jackpotAnte: partial.startScore,
     ...partial,
   };
 }

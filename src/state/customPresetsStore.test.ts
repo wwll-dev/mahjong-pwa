@@ -4,6 +4,7 @@ import { blankPaoMaRules } from '../domain/presets/paoma';
 import type { StorageLike } from './storage';
 import {
   CUSTOM_PRESETS_KEY,
+  LEGACY_V2_PRESETS_KEY,
   addCustomPreset,
   deleteCustomPreset,
   loadCustomPresets,
@@ -50,6 +51,19 @@ describe('custom presets', () => {
     expect(loadCustomPresets(storage).map((preset) => preset.id)).toEqual([hongKong.id]);
     deleteCustomPreset(hongKong.id, storage);
     expect(loadCustomPresets(storage)).toEqual([]);
+  });
+
+  it('fills a missing v2 jackpot ante from the starting score', () => {
+    const storage = memoryStorage();
+    const rules = blankHongKongRules();
+    const legacyRules: Record<string, unknown> = { ...rules, name: '舊自訂' };
+    delete legacyRules.jackpotAnte;
+    storage.setItem(LEGACY_V2_PRESETS_KEY, JSON.stringify([
+      { id: 'old', createdAt: '2026-01-01T00:00:00.000Z', rules: legacyRules },
+    ]));
+    const loaded = loadCustomPresets(storage);
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0]?.rules.mode === 'hongkong' && loaded[0].rules.jackpotAnte).toBe(rules.startScore);
   });
 
   it('requires a name and skips corrupt entries', () => {

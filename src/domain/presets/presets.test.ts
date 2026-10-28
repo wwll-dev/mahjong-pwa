@@ -22,6 +22,7 @@ describe('built-in presets', () => {
       expect(preset.rules.maxFan).toBe(8);
       expect(preset.rules.selfDrawFactor).toBe(1.5);
       expect(preset.rules.jackpotEnabled).toBe(false);
+      expect(preset.rules.jackpotAnte).toBe(preset.rules.startScore);
       expect(preset.rules.recordDealer).toBe(true);
       expect(preset.rules.recordWind).toBe(true);
       const capped = discardScore(preset.rules.maxFan, preset.rules);

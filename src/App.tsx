@@ -9,6 +9,8 @@ import { Hand } from './screens/Hand';
 import { KongSheet } from './screens/KongSheet';
 import { Settle } from './screens/Settle';
 import { LegacySettle } from './screens/LegacySettle';
+import { HistoryList } from './screens/HistoryList';
+import { HistoryDetail } from './screens/HistoryDetail';
 import { routerBasename } from './pwa/base';
 import { RulesDraftProvider } from './state/rulesDraft';
 import { SessionProvider, useSession } from './state/sessionStore';
@@ -31,6 +33,8 @@ export function AppRoutes() {
       <Route path="/kong" element={<RequireActive><KongSheet /></RequireActive>} />
       <Route path="/settle" element={<RequireActive><Settle /></RequireActive>} />
       <Route path="/legacy" element={<LegacySettle />} />
+      <Route path="/history" element={<HistoryList />} />
+      <Route path="/history/:id" element={<HistoryDetail />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

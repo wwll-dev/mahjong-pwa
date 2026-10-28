@@ -1,25 +1,41 @@
 import { createId } from '../domain/id';
 import { rulesError } from '../domain/rules';
 import type { CustomPreset, Rules } from '../domain/types';
-import { isCustomPreset } from './guards';
+import { coerceRules } from './guards';
 import { defaultStorage, type StorageLike } from './storage';
 
-export const CUSTOM_PRESETS_KEY = 'mahjong-pwa:v2:customPresets';
+export const CUSTOM_PRESETS_KEY = 'mahjong-pwa:v3:customPresets';
+export const LEGACY_V2_PRESETS_KEY = 'mahjong-pwa:v2:customPresets';
 
-export function loadCustomPresets(storage: StorageLike = defaultStorage()): CustomPreset[] {
+function readPresetList(key: string, storage: StorageLike): CustomPreset[] {
   try {
-    const raw = storage.getItem(CUSTOM_PRESETS_KEY);
+    const raw = storage.getItem(key);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isCustomPreset);
+    const presets: CustomPreset[] = [];
+    for (const item of parsed) {
+      if (typeof item !== 'object' || item === null) continue;
+      const record = item as { id?: unknown; createdAt?: unknown; rules?: unknown };
+      if (typeof record.id !== 'string' || typeof record.createdAt !== 'string') continue;
+      const rules = coerceRules(record.rules);
+      if (!rules) continue;
+      presets.push({ id: record.id, createdAt: record.createdAt, rules });
+    }
+    return presets;
   } catch {
     return [];
   }
 }
 
+export function loadCustomPresets(storage: StorageLike = defaultStorage()): CustomPreset[] {
+  if (storage.getItem(CUSTOM_PRESETS_KEY) !== null) return readPresetList(CUSTOM_PRESETS_KEY, storage);
+  return readPresetList(LEGACY_V2_PRESETS_KEY, storage);
+}
+
 function write(presets: CustomPreset[], storage: StorageLike): void {
   storage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(presets));
+  storage.removeItem(LEGACY_V2_PRESETS_KEY);
 }
 
 export function addCustomPreset(

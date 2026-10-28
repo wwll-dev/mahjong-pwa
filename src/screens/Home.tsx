@@ -25,7 +25,8 @@ export function Home() {
       <div className="dock">
         <Link className="btn btn-primary" to="/rules">新開局</Link>
         {hasActiveSession ? <Link className="btn btn-secondary" to="/table">繼續</Link> : null}
-        <p className="fineprint">v2 · 朋友局計分，唔涉及真錢</p>
+        <Link className="btn btn-secondary" to="/history">歷史</Link>
+        <p className="fineprint">v3 · 朋友局計分，唔涉及真錢</p>
       </div>
     </main>
   );

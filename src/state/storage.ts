@@ -1,8 +1,9 @@
 import { projectSession } from '../domain/session';
 import type { Session } from '../domain/types';
-import { isLegacySession, isSession, type LegacySession } from './guards';
+import { coerceSession, isLegacySession, type LegacySession } from './guards';
 
-export const SESSION_STORAGE_KEY = 'mahjong-pwa:v2:session';
+export const SESSION_STORAGE_KEY = 'mahjong-pwa:v3:session';
+export const LEGACY_V2_SESSION_KEY = 'mahjong-pwa:v2:session';
 export const LEGACY_SESSION_STORAGE_KEY = 'mahjong-pwa:v1:session';
 
 export interface StorageLike {
@@ -23,18 +24,19 @@ function readJson(key: string, storage: StorageLike): unknown {
   return JSON.parse(raw);
 }
 
-export function loadSession(storage: StorageLike = defaultStorage()): Session | null {
+function readSessionKey(key: string, storage: StorageLike): Session | null {
   try {
-    const parsed = readJson(SESSION_STORAGE_KEY, storage);
+    const parsed = readJson(key, storage);
     if (parsed === null) return null;
-    if (!isSession(parsed)) {
-      storage.removeItem(SESSION_STORAGE_KEY);
+    const session = coerceSession(parsed);
+    if (!session) {
+      storage.removeItem(key);
       return null;
     }
-    return projectSession(parsed);
+    return projectSession(session);
   } catch {
     try {
-      storage.removeItem(SESSION_STORAGE_KEY);
+      storage.removeItem(key);
     } catch {
       /* ignore storage failures while recovering */
     }
@@ -42,7 +44,14 @@ export function loadSession(storage: StorageLike = defaultStorage()): Session | 
   }
 }
 
+export function loadSession(storage: StorageLike = defaultStorage()): Session | null {
+  const current = readSessionKey(SESSION_STORAGE_KEY, storage);
+  if (current) return current;
+  return readSessionKey(LEGACY_V2_SESSION_KEY, storage);
+}
+
 export function saveSession(session: Session | null, storage: StorageLike = defaultStorage()): void {
+  storage.removeItem(LEGACY_V2_SESSION_KEY);
   if (!session) {
     storage.removeItem(SESSION_STORAGE_KEY);
     return;

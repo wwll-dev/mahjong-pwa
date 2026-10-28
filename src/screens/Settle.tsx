@@ -8,8 +8,16 @@ function nameOf(session: Session, id: string): string {
   return session.players.find((player) => player.id === id)?.name ?? '—';
 }
 
-function PairwisePayList({ session, payments }: { session: Session; payments: PairwisePayment[] }) {
-  if (payments.length === 0) return <p className="empty">大家打和，無需找數。</p>;
+function PairwisePayList({
+  session,
+  payments,
+  emptyText = '大家打和，無需找數。',
+}: {
+  session: Session;
+  payments: PairwisePayment[];
+  emptyText?: string;
+}) {
+  if (payments.length === 0) return <p className="empty">{emptyText}</p>;
   return (
     <ul className="pay-list" aria-label="兩兩找數">
       {payments.map((payment) => (
@@ -24,7 +32,7 @@ function PairwisePayList({ session, payments }: { session: Session; payments: Pa
 
 export function Settle() {
   const navigate = useNavigate();
-  const { session, clearSession } = useSession();
+  const { session, finishSession } = useSession();
   if (!session) return null;
 
   const seats = [...session.players].sort((a, b) => a.seatIndex - b.seatIndex);
@@ -32,7 +40,7 @@ export function Settle() {
   const payments = pairwiseSettle(nets, session.players);
 
   function finish() {
-    clearSession();
+    finishSession();
     navigate('/', { replace: true });
   }
 
@@ -54,9 +62,20 @@ export function Settle() {
             })}
           </ul>
         </section>
+        {session.rules.mode === 'hongkong' && session.rules.jackpotEnabled ? (
+          <p className="hint">{session.jackpotPool === 0 ? '獎池已清' : `獎池剩餘 ${session.jackpotPool}`}</p>
+        ) : null}
         <section className="panel">
           <h2>兩兩找數</h2>
-          <PairwisePayList session={session} payments={payments} />
+          <PairwisePayList
+            session={session}
+            payments={payments}
+            emptyText={
+              session.rules.mode === 'hongkong' && session.rules.jackpotEnabled && session.jackpotPool > 0
+                ? '玩家之間無需找數。未派彩留喺獎池。'
+                : undefined
+            }
+          />
         </section>
       </div>
       <div className="dock">

@@ -177,7 +177,7 @@ describe('table flows', () => {
     expect(within(card('玩家3')).getByText('+4')).toBeInTheDocument();
     expect(within(card('玩家2')).getByText('莊')).toBeInTheDocument();
     expect(screen.getByText(/過莊/)).toBeInTheDocument();
-    expect(localStorage.getItem(SESSION_STORAGE_KEY)).toContain('"version":2');
+    expect(localStorage.getItem(SESSION_STORAGE_KEY)).toContain('"version":3');
 
     view.unmount();
     renderApp();
@@ -203,6 +203,11 @@ describe('table flows', () => {
     await user.click(screen.getByRole('button', { name: '完成（清局）' }));
     expect(screen.queryByRole('link', { name: '繼續' })).not.toBeInTheDocument();
     expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+    await user.click(screen.getByRole('link', { name: '歷史' }));
+    expect(await screen.findByRole('heading', { name: '歷史' })).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: /3番4 半辣上/ }));
+    expect(await screen.findByRole('heading', { name: '局詳情' })).toBeInTheDocument();
+    expect(screen.getByText(/第 1 鋪/)).toBeInTheDocument();
   });
 
   it('applies half chong by seat order', async () => {
@@ -225,22 +230,28 @@ describe('table flows', () => {
     expect(previewRow('玩家4')).toHaveTextContent('0');
   });
 
-  it('does not let jackpot change a self-draw, and can hide the dealer', async () => {
+  it('antes a jackpot self-draw and shows the pool on the table', async () => {
     const user = userEvent.setup();
     await openPicker(user);
     await openPreset(user, '二五雞 辣辣上');
     await user.click(screen.getByRole('switch', { name: 'Jackpot' }));
     expect(screen.getByRole('switch', { name: 'Jackpot' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('textbox', { name: '每人入池' })).toHaveValue('8');
+    expect(screen.getByText('每鋪（食糊／流局）每人入池；滿糊攞走成池')).toBeInTheDocument();
     await confirmRules(user);
     await openTable(user);
+    expect(screen.getByText('獎池 0')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '記一鋪' }));
     await user.click(radio('胡牌玩家', '玩家1'));
     await user.click(screen.getByRole('radio', { name: '自摸' }));
-    expect(previewRow('玩家1')).toHaveTextContent('+36');
-    expect(previewRow('玩家2')).toHaveTextContent('-12');
+    expect(previewRow('玩家1')).toHaveTextContent('+28');
+    expect(previewRow('玩家2')).toHaveTextContent('-20');
+    expect(screen.getByText(/入池 每人 8（共 32）/)).toBeInTheDocument();
+    expect(screen.getByText(/未滿糊，獎池保留/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '確認入帳' }));
-    expect(within(card('玩家1')).getByText('+36')).toBeInTheDocument();
+    expect(within(card('玩家1')).getByText('+28')).toBeInTheDocument();
     expect(within(card('玩家1')).getByText('連×1')).toBeInTheDocument();
+    expect(screen.getByText('獎池 32')).toBeInTheDocument();
     expect(localStorage.getItem(SESSION_STORAGE_KEY)).toContain('"jackpotEnabled":true');
   });
 
@@ -311,6 +322,10 @@ describe('table flows', () => {
     await confirmRules(user);
     await openTable(user);
     await user.click(screen.getByRole('button', { name: '記槓' }));
+    expect(screen.getByRole('heading', { name: '記槓' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '明槓' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('button', { name: /點槓（可選）/ })).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: '點槓玩家' })).not.toBeInTheDocument();
     await user.click(radio('槓牌玩家', '玩家1'));
     expect(previewRow('玩家1')).toHaveTextContent('+3');
     expect(previewRow('玩家2')).toHaveTextContent('-1');
@@ -325,6 +340,7 @@ describe('table flows', () => {
     await user.click(screen.getByRole('button', { name: '記一鋪' }));
     await user.click(radio('胡牌玩家', '玩家2'));
     await user.click(radio('出銃玩家', '玩家3'));
+    await user.click(screen.getByRole('button', { name: '跳過翻馬、手填隻數' }));
     await user.click(screen.getByRole('button', { name: '增加中馬' }));
     expect(previewRow('玩家2')).toHaveTextContent('+4');
     expect(previewRow('玩家3')).toHaveTextContent('-4');
@@ -344,6 +360,7 @@ describe('table flows', () => {
     await user.click(screen.getByRole('button', { name: '記一鋪' }));
     await user.click(radio('胡牌玩家', '玩家2'));
     await user.click(screen.getByRole('radio', { name: '自摸' }));
+    await user.click(screen.getByRole('button', { name: '跳過翻馬、手填隻數' }));
     await user.click(screen.getByRole('button', { name: '增加中馬' }));
     expect(screen.getByRole('button', { name: '確認入帳' })).toBeDisabled();
     await user.click(radio('包自摸玩家', '玩家3'));
@@ -366,6 +383,14 @@ describe('table flows', () => {
     await user.type(first, '玩家2');
     expect(screen.getByRole('button', { name: '開枱' })).toBeDisabled();
     expect(screen.getByRole('alert')).toHaveTextContent('玩家名要全部唔同');
+  });
+
+  it('shows an empty history list from home', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole('link', { name: '歷史' }));
+    expect(await screen.findByRole('heading', { name: '歷史' })).toBeInTheDocument();
+    expect(screen.getByText('未有歷史局')).toBeInTheDocument();
   });
 
   it('returns home when a table route has no session', () => {
