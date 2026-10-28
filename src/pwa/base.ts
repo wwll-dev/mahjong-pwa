@@ -20,9 +20,13 @@ export function navigationAllowlist(base: string): RegExp[] {
   const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return [
     new RegExp(`^${escaped}/$`),
+    new RegExp(`^${escaped}/rules$`),
+    new RegExp(`^${escaped}/rules/edit$`),
     new RegExp(`^${escaped}/setup$`),
     new RegExp(`^${escaped}/table$`),
     new RegExp(`^${escaped}/hand$`),
+    new RegExp(`^${escaped}/kong$`),
     new RegExp(`^${escaped}/settle$`),
+    new RegExp(`^${escaped}/legacy$`),
   ];
 }

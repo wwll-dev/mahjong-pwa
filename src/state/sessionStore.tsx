@@ -7,14 +7,17 @@ import {
   type NewSessionInput,
 } from '../domain/session';
 import type { Session } from '../domain/types';
-import { loadSession, saveSession } from './storage';
+import type { LegacySession } from './guards';
+import { discardLegacySession, loadLegacySession, loadSession, saveSession } from './storage';
 
 interface SessionApi {
   session: Session | null;
+  legacy: LegacySession | null;
   startSession: (input: NewSessionInput) => Session;
   recordHand: (draft: HandDraft) => void;
   undo: () => void;
   clearSession: () => void;
+  discardLegacy: () => void;
 }
 
 const SessionContext = createContext<SessionApi | null>(null);
@@ -27,8 +30,17 @@ function readInitialSession(): Session | null {
   }
 }
 
+function readInitialLegacy(): LegacySession | null {
+  try {
+    return loadLegacySession();
+  } catch {
+    return null;
+  }
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(readInitialSession);
+  const [legacy, setLegacy] = useState<LegacySession | null>(readInitialLegacy);
 
   const commit = useCallback((next: Session | null) => {
     saveSession(next);
@@ -37,6 +49,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const api = useMemo<SessionApi>(() => ({
     session,
+    legacy,
     startSession: (input) => {
       const next = createSession(input);
       commit(next);
@@ -44,7 +57,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     recordHand: (draft) => {
       setSession((current) => {
-        if (!current) return current;
+        if (!current || current.status !== 'active') return current;
         const next = applyHand(current, draft);
         saveSession(next);
         return next;
@@ -52,14 +65,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     undo: () => {
       setSession((current) => {
-        if (!current) return current;
+        if (!current || current.status !== 'active') return current;
         const next = undoLastHand(current);
         saveSession(next);
         return next;
       });
     },
     clearSession: () => commit(null),
-  }), [session, commit]);
+    discardLegacy: () => {
+      discardLegacySession();
+      setLegacy(null);
+    },
+  }), [session, legacy, commit]);
 
   return <SessionContext.Provider value={api}>{children}</SessionContext.Provider>;
 }

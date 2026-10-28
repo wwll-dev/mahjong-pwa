@@ -8,12 +8,14 @@ import { useSession } from '../state/sessionStore';
 export function Hand() {
   const navigate = useNavigate();
   const { session, recordHand } = useSession();
+  const minFan = session?.rules.mode === 'hongkong' ? session.rules.minFan : 1;
+  const maxFan = session?.rules.mode === 'hongkong' ? session.rules.maxFan : 13;
   const [outcome, setOutcome] = useState<'win' | 'draw'>('win');
   const [winnerId, setWinnerId] = useState('');
   const [winType, setWinType] = useState<'discard' | 'selfDraw'>('discard');
   const [discarderId, setDiscarderId] = useState('');
   const [baoPlayerId, setBaoPlayerId] = useState('');
-  const [fan, setFan] = useState(1);
+  const [fan, setFan] = useState(minFan);
   const [horsesHit, setHorsesHit] = useState(0);
 
   if (!session) return null;
@@ -22,6 +24,7 @@ export function Hand() {
   const error = handError(session, draft);
   const deltas = error ? null : previewDeltas(session, draft);
   const showBao = session.rules.mode === 'paoma' && session.rules.baoSelfDraw && outcome === 'win' && winType === 'selfDraw';
+  const horseMax = session.rules.mode === 'paoma' ? session.rules.horseCountMax : 0;
 
   function chooseWinner(id: string) {
     setWinnerId(id);
@@ -30,11 +33,11 @@ export function Hand() {
   }
 
   function buildDraft(): HandDraft {
-    if (outcome === 'draw') return { outcome: 'draw' };
+    if (outcome === 'draw') return { kind: 'draw' };
     if (winType === 'discard') {
-      return { outcome: 'win', winnerId, winType, discarderId, fan, horsesHit };
+      return { kind: 'win', winnerId, winType, discarderId, fan, horsesHit };
     }
-    return { outcome: 'win', winnerId, winType, baoPlayerId, fan, horsesHit };
+    return { kind: 'win', winnerId, winType, baoPlayerId, fan, horsesHit };
   }
 
   function confirm() {
@@ -84,13 +87,21 @@ export function Hand() {
               />
             ) : null}
             {session.rules.mode === 'hongkong' ? (
-              <Stepper label="番" value={fan} min={1} decLabel="減少番" incLabel="增加番" onChange={setFan} />
+              <Stepper
+                label="番"
+                value={fan}
+                min={minFan}
+                max={maxFan}
+                decLabel="減少番"
+                incLabel="增加番"
+                onChange={setFan}
+              />
             ) : (
               <Stepper
                 label="中幾隻"
                 value={horsesHit}
                 min={0}
-                max={session.rules.horseCount}
+                max={horseMax}
                 decLabel="減少中馬"
                 incLabel="增加中馬"
                 onChange={setHorsesHit}
@@ -115,7 +126,7 @@ export function Hand() {
               {seats.map((player) => (
                 <li key={player.id}>
                   <span>{player.name}</span>
-                  <span className={deltas[player.id] > 0 ? 'pos' : deltas[player.id] < 0 ? 'neg' : ''}>
+                  <span className={(deltas[player.id] ?? 0) > 0 ? 'pos' : (deltas[player.id] ?? 0) < 0 ? 'neg' : ''}>
                     {formatPoints(deltas[player.id] ?? 0)}
                   </span>
                 </li>

@@ -111,3 +111,92 @@ export function Field({ label, children }: { label: string; children: ReactNode 
     </label>
   );
 }
+
+export function SettingsRow({
+  label,
+  value,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className="settings-row" onClick={onClick}>
+      <span>{label}</span>
+      <span className="settings-value">
+        {value}
+        <span aria-hidden="true"> ›</span>
+      </span>
+    </button>
+  );
+}
+
+export function Toggle({
+  label,
+  caption,
+  checked,
+  onChange,
+}: {
+  label: string;
+  caption?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-label={label}
+      aria-checked={checked}
+      className="switch-ui"
+      onClick={() => onChange(!checked)}
+    >
+      <span>{caption ?? label}</span>
+      <span className="track" aria-hidden="true"><span className="knob" /></span>
+    </button>
+  );
+}
+
+export function OptionDialog<T extends string>({
+  title,
+  open,
+  value,
+  options,
+  onSelect,
+  onClose,
+}: {
+  title: string;
+  open: boolean;
+  value: T;
+  options: { value: T; label: string }[];
+  onSelect: (value: T) => void;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="modal-back">
+      <div role="dialog" aria-modal="true" aria-label={title} className="modal">
+        <h2>{title}</h2>
+        <div role="radiogroup" aria-label={title} className="stack">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={value === option.value}
+              className={value === option.value ? 'choice is-on' : 'choice'}
+              onClick={() => {
+                onSelect(option.value);
+                onClose();
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="btn btn-secondary" onClick={onClose}>取消</button>
+      </div>
+    </div>
+  );
+}
