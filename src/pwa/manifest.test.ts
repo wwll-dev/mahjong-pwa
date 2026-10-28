@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { APP_ROUTES, manifest, navigateFallbackAllowlist } from './manifest';
+import { navigationAllowlist, normalizeBase, routerBasename } from './base';
+import { APP_ROUTES, manifest } from './manifest';
 
 function channel(hex: string, index: number): number {
   const value = Number.parseInt(hex.slice(index, index + 2), 16) / 255;
@@ -32,13 +33,27 @@ describe('pwa shell', () => {
     expect(manifest.display).toBe('standalone');
     expect(manifest.theme_color).toBe('#0c1210');
     expect(manifest.background_color).toBe('#0c1210');
-    expect(manifest.start_url).toBe('/');
+    expect(manifest).not.toHaveProperty('start_url');
+    expect(manifest).not.toHaveProperty('scope');
     expect(manifest.icons.map((icon) => icon.sizes)).toEqual(['192x192', '512x512', '512x512']);
+    expect(manifest.icons.every((icon) => !icon.src.startsWith('/'))).toBe(true);
     expect(luminance(manifest.theme_color)).toBeLessThan(0.05);
+    const rootShell = navigationAllowlist('/');
     for (const route of APP_ROUTES) {
-      expect(navigateFallbackAllowlist.some((pattern) => pattern.test(route))).toBe(true);
+      expect(rootShell.some((pattern) => pattern.test(route))).toBe(true);
     }
-    expect(navigateFallbackAllowlist.some((pattern) => pattern.test('/history'))).toBe(false);
+    expect(rootShell.some((pattern) => pattern.test('/history'))).toBe(false);
+    const pagesShell = navigationAllowlist('/mahjong-pwa/');
+    for (const route of APP_ROUTES) {
+      const path = route === '/' ? '/mahjong-pwa/' : `/mahjong-pwa${route}`;
+      expect(pagesShell.some((pattern) => pattern.test(path))).toBe(true);
+    }
+    expect(pagesShell.some((pattern) => pattern.test('/setup'))).toBe(false);
+    expect(pagesShell.some((pattern) => pattern.test('/mahjong-pwa/history'))).toBe(false);
+    expect(normalizeBase(undefined)).toBe('/');
+    expect(normalizeBase('/mahjong-pwa')).toBe('/mahjong-pwa/');
+    expect(routerBasename('/')).toBeUndefined();
+    expect(routerBasename('/mahjong-pwa/')).toBe('/mahjong-pwa');
     for (const file of [
       'public/icons/icon-192.png',
       'public/icons/icon-512.png',

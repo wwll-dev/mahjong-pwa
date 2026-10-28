@@ -5,6 +5,7 @@ import { Setup } from './screens/Setup';
 import { Table } from './screens/Table';
 import { Hand } from './screens/Hand';
 import { Settle } from './screens/Settle';
+import { routerBasename } from './pwa/base';
 import { SessionProvider, useSession } from './state/sessionStore';
 
 function RequireActive({ children }: { children: ReactNode }) {
@@ -29,7 +30,7 @@ export function AppRoutes() {
 export function App() {
   return (
     <SessionProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={routerBasename(import.meta.env.BASE_URL)}>
         <AppRoutes />
       </BrowserRouter>
     </SessionProvider>

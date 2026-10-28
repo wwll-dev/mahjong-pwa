@@ -80,7 +80,7 @@ export function Table() {
           <span className="chip">{modeLabel}</span>
           <p className="hand-no">第 {session.hands.length + 1} 鋪</p>
           {session.hands.length > 0 ? (
-            <button type="button" className="btn btn-ghost" onClick={undo}>Undo</button>
+            <button type="button" className="btn btn-ghost" onClick={undo}>復原</button>
           ) : null}
         </div>
         <div className="board">

@@ -108,10 +108,10 @@ describe('mahjong table flows', () => {
     expect(within(card('玩家3')).getByText('+3')).toBeInTheDocument();
     expect(within(card('玩家2')).getByText('莊')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    await user.click(screen.getByRole('button', { name: '復原' }));
     expect(within(card('玩家1')).getByText('莊')).toBeInTheDocument();
     expect(within(card('玩家3')).getByText('0')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '復原' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '記一鋪' }));
     await user.click(radio('胡牌玩家', '玩家3'));
@@ -234,7 +234,7 @@ describe('mahjong table flows', () => {
     expect(previewRow('玩家3')).toHaveTextContent('0');
     await user.click(screen.getByRole('button', { name: '確認入帳' }));
     expect(within(card('玩家4')).getByText('-9')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    await user.click(screen.getByRole('button', { name: '復原' }));
     expect(within(card('玩家2')).getByText('0')).toBeInTheDocument();
     expect(within(card('玩家4')).getByText('0')).toBeInTheDocument();
   });
