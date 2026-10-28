@@ -1,4 +1,14 @@
-export const APP_ROUTES = ['/', '/setup', '/table', '/hand', '/settle'] as const;
+export const APP_ROUTES = [
+  '/',
+  '/rules',
+  '/rules/edit',
+  '/setup',
+  '/table',
+  '/hand',
+  '/kong',
+  '/settle',
+  '/legacy',
+] as const;
 
 export const manifest = {
   name: '麻雀計分',

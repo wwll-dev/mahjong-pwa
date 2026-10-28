@@ -29,7 +29,7 @@ function cssVar(css: string, name: string): string {
 }
 
 describe('pwa shell', () => {
-  it('exposes a dark standalone manifest and precaches the five routes', () => {
+  it('exposes a dark standalone manifest and precaches the app routes', () => {
     expect(manifest.display).toBe('standalone');
     expect(manifest.theme_color).toBe('#0c1210');
     expect(manifest.background_color).toBe('#0c1210');
