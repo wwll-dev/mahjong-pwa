@@ -8,6 +8,7 @@ export const APP_ROUTES = [
   '/kong',
   '/settle',
   '/legacy',
+  '/history',
 ] as const;
 
 export const manifest = {

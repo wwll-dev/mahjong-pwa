@@ -1,5 +1,5 @@
 import { normalizeZeros, zeroDeltas } from '../deltas';
-import type { PaoMaRules, PlayerId, SeatRef } from '../types';
+import type { KongKind, PaoMaRules, PlayerId, SeatRef } from '../types';
 
 export interface PaoMaWinInput {
   winnerId: PlayerId;
@@ -19,16 +19,31 @@ function horsePoints(rules: PaoMaRules, horsesHit: number | undefined): number {
   return hit * rules.horse;
 }
 
+export interface KongPayInput {
+  kongKind?: KongKind;
+  discarderId?: PlayerId;
+}
+
 export function paoMaKongDeltas(
   players: readonly SeatRef[],
   rules: PaoMaRules,
   kongPlayerId: PlayerId,
+  input: KongPayInput = {},
 ): Record<PlayerId, number> {
   if (!players.some((player) => player.id === kongPlayerId)) throw new Error('請選槓牌玩家');
+  const kind = input.kongKind ?? 'ming';
   const deltas = zeroDeltas(players);
   const others = players.filter((player) => player.id !== kongPlayerId);
-  for (const player of others) deltas[player.id] = -rules.kong;
-  deltas[kongPlayerId] = others.length * rules.kong;
+  if (kind === 'ming' && input.discarderId) {
+    if (!players.some((player) => player.id === input.discarderId)) throw new Error('請選點槓玩家');
+    if (input.discarderId === kongPlayerId) throw new Error('點槓玩家唔可以係槓牌玩家');
+    deltas[input.discarderId] = -others.length * rules.kong;
+    deltas[kongPlayerId] = others.length * rules.kong;
+    return normalizeZeros(deltas);
+  }
+  const stake = kind === 'an' ? rules.kong * 2 : rules.kong;
+  for (const player of others) deltas[player.id] = -stake;
+  deltas[kongPlayerId] = others.length * stake;
   return normalizeZeros(deltas);
 }
 

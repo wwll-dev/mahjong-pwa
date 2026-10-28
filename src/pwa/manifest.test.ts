@@ -42,14 +42,18 @@ describe('pwa shell', () => {
     for (const route of APP_ROUTES) {
       expect(rootShell.some((pattern) => pattern.test(route))).toBe(true);
     }
-    expect(rootShell.some((pattern) => pattern.test('/history'))).toBe(false);
+    expect(rootShell.some((pattern) => pattern.test('/history'))).toBe(true);
+    expect(rootShell.some((pattern) => pattern.test('/history/abc'))).toBe(true);
+    expect(rootShell.some((pattern) => pattern.test('/voice'))).toBe(false);
     const pagesShell = navigationAllowlist('/mahjong-pwa/');
     for (const route of APP_ROUTES) {
       const path = route === '/' ? '/mahjong-pwa/' : `/mahjong-pwa${route}`;
       expect(pagesShell.some((pattern) => pattern.test(path))).toBe(true);
     }
     expect(pagesShell.some((pattern) => pattern.test('/setup'))).toBe(false);
-    expect(pagesShell.some((pattern) => pattern.test('/mahjong-pwa/history'))).toBe(false);
+    expect(pagesShell.some((pattern) => pattern.test('/mahjong-pwa/history'))).toBe(true);
+    expect(pagesShell.some((pattern) => pattern.test('/mahjong-pwa/history/abc'))).toBe(true);
+    expect(pagesShell.some((pattern) => pattern.test('/mahjong-pwa/voice'))).toBe(false);
     expect(normalizeBase(undefined)).toBe('/');
     expect(normalizeBase('/mahjong-pwa')).toBe('/mahjong-pwa/');
     expect(routerBasename('/')).toBeUndefined();

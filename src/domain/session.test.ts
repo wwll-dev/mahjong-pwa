@@ -23,7 +23,8 @@ function idOf(session: ReturnType<typeof createSession>, name: string): string {
 describe('session', () => {
   it('opens a v2 table at zero with the chosen dealer', () => {
     const session = createSession(input(HONG_KONG_PRESETS[0].rules, { dealerSeat: 2 }));
-    expect(session.version).toBe(2);
+    expect(session.version).toBe(3);
+    expect(session.jackpotPool).toBe(0);
     expect(session.wind).toBe('E');
     expect(session.windsCompleted).toBe(0);
     expect(session.players.map((player) => player.score)).toEqual([0, 0, 0, 0]);

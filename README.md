@@ -2,8 +2,9 @@
 
 無廣告 iPhone PWA，計 **香港麻雀** 同 **碰槓牌（跑馬仔）**。先揀預設或自訂玩法，再填玩家名開枱。分數留喺呢部機嘅 `localStorage`，無帳號、無後端。
 
-- 新局：`mahjong-pwa:v2:session`
-- 自訂玩法：`mahjong-pwa:v2:customPresets`
+- 新局：`mahjong-pwa:v3:session`（讀到 v2 會喺下次寫入時升上 v3）
+- 歷史：`mahjong-pwa:v3:history`（最多 50 局）
+- 自訂玩法：`mahjong-pwa:v3:customPresets`
 - Part 1 舊局（`mahjong-pwa:v1:session`）只可以找數或者丟棄，唔會用新分數表續鋪。
 
 規格：[`specs/mahjong-score-pwa-part2.md`](specs/mahjong-score-pwa-part2.md)（Part 1：[`specs/mahjong-score-pwa-part1.md`](specs/mahjong-score-pwa-part1.md)）
@@ -30,4 +31,4 @@ Push 去 `main` 會跑 [`.github/workflows/pages.yml`](.github/workflows/pages.y
 
 ## 範圍
 
-Part 2 做港麻分數表（半辣／辣辣、自摸 ×1.5）、跑馬仔槓／食糊／獎馬、三人桌、自訂玩法、圈風，同明槓。Jackpot 同鬥地主（追）只係開關，唔改分數。唔做台麻、日麻、暗槓、一炮多響、翻馬動畫、雲同步、分享圖或廣告。
+Part 2 做港麻分數表（半辣／辣辣、自摸 ×1.5）、跑馬仔槓／食糊／獎馬、三人桌、自訂玩法、圈風，同明槓。Part 3 加歷史、港麻番表、跑馬仔翻馬、Jackpot 真池，同明槓／暗槓／加槓／點槓。鬥地主（追）仍然只係開關。唔做台麻、日麻、語音、一炮多響、雲同步、分享圖或廣告。

@@ -75,6 +75,27 @@ describe('pao ma payments', () => {
     );
   });
 
+  it('exposed kong without a discarder charges every other player', () => {
+    const deltas = paoMaKongDeltas(four, rules({ kong: 1 }), 'k', { kongKind: 'ming' });
+    expect(deltas).toEqual({ k: 3, a: -1, d: -1, b: -1 });
+    expect(sumDeltas(deltas)).toBe(0);
+  });
+
+  it('bao-kong charges only the discarder (N-1)*K', () => {
+    const deltas = paoMaKongDeltas(four, rules({ kong: 2 }), 'k', { kongKind: 'ming', discarderId: 'd' });
+    expect(deltas).toEqual({ k: 6, d: -6, a: 0, b: 0 });
+    expect(sumDeltas(deltas)).toBe(0);
+  });
+
+  it('concealed kong charges 2K and added kong matches an unclaimed exposed kong', () => {
+    const concealed = paoMaKongDeltas(four, rules({ kong: 1 }), 'k', { kongKind: 'an', discarderId: 'd' });
+    expect(concealed).toEqual({ k: 6, a: -2, d: -2, b: -2 });
+    const added = paoMaKongDeltas(four, rules({ kong: 1 }), 'k', { kongKind: 'jia', discarderId: 'd' });
+    const exposed = paoMaKongDeltas(four, rules({ kong: 1 }), 'k', { kongKind: 'ming' });
+    expect(added).toEqual(exposed);
+    expect(sumDeltas(concealed)).toBe(0);
+  });
+
   it('rejects horses above the limit and a bao player who won', () => {
     expect(() => paoMaDeltas(four, rules({ horseCountMax: 2 }), {
       winnerId: 'k',

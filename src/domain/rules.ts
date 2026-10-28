@@ -19,6 +19,7 @@ function hongKongError(rules: HongKongRules): string | null {
   if (rules.minFan < 1 || rules.maxFan > 13 || rules.minFan > rules.maxFan) return '番數範圍無效';
   if (!Number.isInteger(rules.startScore) || rules.startScore <= 0) return '起糊分要係正整數';
   if (!Number.isFinite(rules.selfDrawFactor) || rules.selfDrawFactor <= 0) return '自摸倍數要大過 0';
+  if (!Number.isInteger(rules.jackpotAnte) || rules.jackpotAnte <= 0) return '入池金額要係正整數';
   return null;
 }
 

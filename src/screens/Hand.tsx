@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChoiceGrid, Segmented, Stepper } from '../components/controls';
+import { FanPicker } from '../components/FanPicker';
+import { HorseFlip } from '../components/HorseFlip';
 import { formatPoints } from '../domain/format';
-import { handError, previewDeltas, type HandDraft } from '../domain/session';
+import { horsesHitCount } from '../domain/horses';
+import { handError, previewHand, type HandDraft } from '../domain/session';
+import type { FanPick } from '../domain/types';
 import { useSession } from '../state/sessionStore';
 
 export function Hand() {
@@ -10,21 +14,27 @@ export function Hand() {
   const { session, recordHand } = useSession();
   const minFan = session?.rules.mode === 'hongkong' ? session.rules.minFan : 1;
   const maxFan = session?.rules.mode === 'hongkong' ? session.rules.maxFan : 13;
+  const horseMax = session?.rules.mode === 'paoma' ? session.rules.horseCountMax : 0;
   const [outcome, setOutcome] = useState<'win' | 'draw'>('win');
   const [winnerId, setWinnerId] = useState('');
   const [winType, setWinType] = useState<'discard' | 'selfDraw'>('discard');
   const [discarderId, setDiscarderId] = useState('');
   const [baoPlayerId, setBaoPlayerId] = useState('');
   const [fan, setFan] = useState(minFan);
+  const [fanBreakdown, setFanBreakdown] = useState<FanPick[] | undefined>(undefined);
+  const [fanOpen, setFanOpen] = useState(false);
+  const [horses, setHorses] = useState<boolean[]>(() => Array.from({ length: horseMax }, () => false));
+  const [manualHorses, setManualHorses] = useState(false);
   const [horsesHit, setHorsesHit] = useState(0);
 
   if (!session) return null;
   const seats = [...session.players].sort((a, b) => a.seatIndex - b.seatIndex);
   const draft = buildDraft();
   const error = handError(session, draft);
-  const deltas = error ? null : previewDeltas(session, draft);
+  const effect = error ? null : previewHand(session, draft);
+  const deltas = effect?.deltas ?? null;
   const showBao = session.rules.mode === 'paoma' && session.rules.baoSelfDraw && outcome === 'win' && winType === 'selfDraw';
-  const horseMax = session.rules.mode === 'paoma' ? session.rules.horseCountMax : 0;
+  const jackpotOn = session.rules.mode === 'hongkong' && session.rules.jackpotEnabled;
 
   function chooseWinner(id: string) {
     setWinnerId(id);
@@ -34,16 +44,42 @@ export function Hand() {
 
   function buildDraft(): HandDraft {
     if (outcome === 'draw') return { kind: 'draw' };
+    const hit = session?.rules.mode === 'paoma'
+      ? (manualHorses ? horsesHit : horsesHitCount(horses))
+      : horsesHit;
     if (winType === 'discard') {
-      return { kind: 'win', winnerId, winType, discarderId, fan, horsesHit };
+      return {
+        kind: 'win',
+        winnerId,
+        winType,
+        discarderId,
+        fan,
+        horsesHit: hit,
+        horses: session?.rules.mode === 'paoma' && !manualHorses ? horses : undefined,
+        fanBreakdown,
+      };
     }
-    return { kind: 'win', winnerId, winType, baoPlayerId, fan, horsesHit };
+    return {
+      kind: 'win',
+      winnerId,
+      winType,
+      baoPlayerId,
+      fan,
+      horsesHit: hit,
+      horses: session?.rules.mode === 'paoma' && !manualHorses ? horses : undefined,
+      fanBreakdown,
+    };
   }
 
   function confirm() {
     if (error) return;
     recordHand(draft);
     navigate('/table');
+  }
+
+  function applyFan(nextFan: number, picks: FanPick[]) {
+    setFan(nextFan);
+    setFanBreakdown(picks);
   }
 
   return (
@@ -87,25 +123,45 @@ export function Hand() {
               />
             ) : null}
             {session.rules.mode === 'hongkong' ? (
-              <Stepper
-                label="番"
-                value={fan}
-                min={minFan}
-                max={maxFan}
-                decLabel="減少番"
-                incLabel="增加番"
-                onChange={setFan}
-              />
+              <div className="stack">
+                <Stepper
+                  label="番"
+                  value={fan}
+                  min={minFan}
+                  max={maxFan}
+                  decLabel="減少番"
+                  incLabel="增加番"
+                  onChange={(value) => {
+                    setFan(value);
+                    setFanBreakdown(undefined);
+                  }}
+                />
+                <button type="button" className="btn btn-secondary" onClick={() => setFanOpen(true)}>番表</button>
+              </div>
+            ) : manualHorses ? (
+              <div className="stack">
+                <Stepper
+                  label="中幾隻"
+                  value={horsesHit}
+                  min={0}
+                  max={horseMax}
+                  decLabel="減少中馬"
+                  incLabel="增加中馬"
+                  onChange={setHorsesHit}
+                />
+                <button type="button" className="inline-link" onClick={() => setManualHorses(false)}>改用翻馬</button>
+              </div>
             ) : (
-              <Stepper
-                label="中幾隻"
-                value={horsesHit}
-                min={0}
-                max={horseMax}
-                decLabel="減少中馬"
-                incLabel="增加中馬"
-                onChange={setHorsesHit}
-              />
+              <div className="stack">
+                <HorseFlip
+                  horses={horses}
+                  horseValue={session.rules.horse}
+                  onChange={setHorses}
+                />
+                <button type="button" className="inline-link" onClick={() => setManualHorses(true)}>
+                  跳過翻馬、手填隻數
+                </button>
+              </div>
             )}
             {showBao ? (
               <ChoiceGrid
@@ -119,7 +175,7 @@ export function Hand() {
             ) : null}
           </div>
         ) : null}
-        {deltas ? (
+        {deltas && effect ? (
           <section className="panel" aria-label="本鋪預覽">
             <h2>本鋪預覽</h2>
             <ul className="preview-list">
@@ -132,6 +188,16 @@ export function Hand() {
                 </li>
               ))}
             </ul>
+            {jackpotOn ? (
+              <p className="hint">
+                {`入池 每人 ${session.rules.mode === 'hongkong' ? session.rules.jackpotAnte : 0}（共 ${effect.jackpotAnteTotal}）`}
+                {outcome === 'draw'
+                  ? ' · 流局唔派彩'
+                  : effect.jackpotPayout > 0
+                    ? ` · 滿糊派彩 ${formatPoints(effect.jackpotPayout)}`
+                    : ' · 未滿糊，獎池保留'}
+              </p>
+            ) : null}
           </section>
         ) : null}
         {error ? <p className="alert" role="alert">{error}</p> : null}
@@ -142,6 +208,14 @@ export function Hand() {
         </button>
         <button type="button" className="btn btn-secondary" onClick={() => navigate('/table')}>取消</button>
       </div>
+      {fanOpen && session.rules.mode === 'hongkong' ? (
+        <FanPicker
+          minFan={minFan}
+          maxFan={maxFan}
+          onApply={applyFan}
+          onClose={() => setFanOpen(false)}
+        />
+      ) : null}
     </main>
   );
 }

@@ -2,9 +2,10 @@ import { advanceDealer, type DealerState } from './dealer';
 import { createId } from './id';
 import { recordWindOf, rulesError } from './rules';
 import { hongKongDeltas } from './score/hongkongPay';
+import { applyJackpot, replayJackpotPool } from './score/jackpot';
 import { paoMaDeltas, paoMaKongDeltas } from './score/paomaPay';
 import { zeroDeltas } from './deltas';
-import type { HandRecord, Player, PlayerId, Rules, Session, Wind } from './types';
+import type { FanPick, HandRecord, KongKind, Player, PlayerId, Rules, Session, Wind } from './types';
 
 export interface NewSessionInput {
   rules: Rules;
@@ -22,10 +23,13 @@ export type HandDraft =
       baoPlayerId?: PlayerId;
       fan?: number;
       horsesHit?: number;
+      horses?: boolean[];
+      fanBreakdown?: FanPick[];
     }
   | {
       kind: 'kong';
       kongPlayerId: PlayerId;
+      kongKind?: KongKind;
       discarderId?: PlayerId;
     };
 
@@ -59,7 +63,7 @@ export function createSession(input: NewSessionInput, now = new Date().toISOStri
   for (const player of players) startingScores[player.id] = 0;
   return {
     id: createId(),
-    version: 2,
+    version: 3,
     rules: input.rules,
     players,
     dealerId: players[dealerSeat]?.id ?? players[0].id,
@@ -68,6 +72,7 @@ export function createSession(input: NewSessionInput, now = new Date().toISOStri
     windsCompleted: 0,
     hands: [],
     startingScores,
+    jackpotPool: 0,
     status: 'active',
     updatedAt: now,
   };
@@ -78,7 +83,9 @@ export function handError(session: Session, draft: HandDraft): string | null {
   if (draft.kind === 'kong') {
     if (session.rules.mode !== 'paoma') return '港麻唔記槓';
     if (!session.players.some((player) => player.id === draft.kongPlayerId)) return '請選槓牌玩家';
-    if (draft.discarderId) {
+    const kind = draft.kongKind ?? 'ming';
+    if (kind !== 'ming' && kind !== 'an' && kind !== 'jia') return '請選槓種';
+    if (kind === 'ming' && draft.discarderId) {
       if (!session.players.some((player) => player.id === draft.discarderId)) return '請選點槓玩家';
       if (draft.discarderId === draft.kongPlayerId) return '點槓玩家唔可以係槓牌玩家';
     }
@@ -152,14 +159,28 @@ export function projectSession(session: Session): Session {
     dealerStreak,
     wind,
     windsCompleted,
+    jackpotPool: replayJackpotPool(session.rules, session.hands),
     players: session.players.map((player) => ({ ...player, score: scores[player.id] ?? 0 })),
   };
 }
 
-function scoreDraft(session: Session, draft: Exclude<HandDraft, { kind: 'draw' }>): Record<PlayerId, number> {
+export interface HandEffect {
+  deltas: Record<PlayerId, number>;
+  jackpotAnteTotal: number;
+  jackpotPayout: number;
+  poolBefore: number;
+  poolAfter: number;
+}
+
+function baseDeltas(session: Session, draft: HandDraft): Record<PlayerId, number> {
+  if (draft.kind === 'draw') return zeroDeltas(session.players);
   if (draft.kind === 'kong') {
     if (session.rules.mode !== 'paoma') throw new Error('港麻唔記槓');
-    return paoMaKongDeltas(session.players, session.rules, draft.kongPlayerId);
+    const kongKind = draft.kongKind ?? 'ming';
+    return paoMaKongDeltas(session.players, session.rules, draft.kongPlayerId, {
+      kongKind,
+      discarderId: kongKind === 'ming' ? draft.discarderId : undefined,
+    });
   }
   if (session.rules.mode === 'hongkong') {
     return hongKongDeltas(session.players, session.rules, draft);
@@ -167,18 +188,45 @@ function scoreDraft(session: Session, draft: Exclude<HandDraft, { kind: 'draw' }
   return paoMaDeltas(session.players, session.rules, draft);
 }
 
-export function previewDeltas(session: Session, draft: HandDraft): Record<PlayerId, number> {
+function effectOf(session: Session, draft: HandDraft): HandEffect {
+  const raw = baseDeltas(session, draft);
+  const rules = session.rules;
+  const jackpot = applyJackpot({
+    playerIds: session.players.map((player) => player.id),
+    ante: rules.mode === 'hongkong' ? rules.jackpotAnte : 0,
+    maxFan: rules.mode === 'hongkong' ? rules.maxFan : 0,
+    enabled: rules.mode === 'hongkong' && rules.jackpotEnabled,
+    kind: draft.kind,
+    fan: draft.kind === 'win' ? draft.fan : undefined,
+    winnerId: draft.kind === 'win' ? draft.winnerId : undefined,
+    pool: session.jackpotPool,
+    deltas: raw,
+  });
+  return {
+    deltas: jackpot.deltas,
+    jackpotAnteTotal: jackpot.jackpotAnteTotal,
+    jackpotPayout: jackpot.jackpotPayout,
+    poolBefore: session.jackpotPool,
+    poolAfter: jackpot.pool,
+  };
+}
+
+export function previewHand(session: Session, draft: HandDraft): HandEffect {
   const error = handError(session, draft);
   if (error) throw new Error(error);
-  if (draft.kind === 'draw') return zeroDeltas(session.players);
-  return scoreDraft(session, draft);
+  return effectOf(projectSession(session), draft);
+}
+
+export function previewDeltas(session: Session, draft: HandDraft): Record<PlayerId, number> {
+  return previewHand(session, draft).deltas;
 }
 
 export function recordHand(session: Session, draft: HandDraft, now = new Date().toISOString()): Session {
   const error = handError(session, draft);
   if (error) throw new Error(error);
   const base = projectSession(session);
-  const deltas = draft.kind === 'draw' ? zeroDeltas(base.players) : scoreDraft(base, draft);
+  const effect = effectOf(base, draft);
+  const deltas = effect.deltas;
   const before = tableState(base);
   const after = advanceDealer(
     base.players,
@@ -200,19 +248,33 @@ export function recordHand(session: Session, draft: HandDraft, now = new Date().
     windAfter: after.wind,
     createdAt: now,
   };
+  if (effect.jackpotAnteTotal > 0 || effect.jackpotPayout > 0) {
+    hand.jackpotAnteTotal = effect.jackpotAnteTotal;
+    hand.jackpotPayout = effect.jackpotPayout;
+    hand.poolAfter = effect.poolAfter;
+  } else if (base.rules.mode === 'hongkong' && base.rules.jackpotEnabled && draft.kind !== 'kong') {
+    hand.jackpotAnteTotal = effect.jackpotAnteTotal;
+    hand.jackpotPayout = effect.jackpotPayout;
+    hand.poolAfter = effect.poolAfter;
+  }
   if (draft.kind === 'win') {
     hand.winnerId = draft.winnerId;
     hand.winType = draft.winType;
     if (draft.winType === 'discard') hand.discarderId = draft.discarderId;
-    if (base.rules.mode === 'hongkong') hand.fan = draft.fan;
+    if (base.rules.mode === 'hongkong') {
+      hand.fan = draft.fan;
+      if (draft.fanBreakdown?.length) hand.fanBreakdown = draft.fanBreakdown;
+    }
     if (base.rules.mode === 'paoma') {
       hand.horsesHit = draft.horsesHit;
+      if (draft.horses) hand.horses = draft.horses;
       if (draft.winType === 'selfDraw' && base.rules.baoSelfDraw) hand.baoPlayerId = draft.baoPlayerId;
     }
   }
   if (draft.kind === 'kong') {
     hand.kongPlayerId = draft.kongPlayerId;
-    if (draft.discarderId) hand.discarderId = draft.discarderId;
+    hand.kongKind = draft.kongKind ?? 'ming';
+    if (hand.kongKind === 'ming' && draft.discarderId) hand.discarderId = draft.discarderId;
   }
   return projectSession({
     ...base,

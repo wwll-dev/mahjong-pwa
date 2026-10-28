@@ -8,6 +8,7 @@ import {
 } from '../domain/session';
 import type { Session } from '../domain/types';
 import type { LegacySession } from './guards';
+import { archiveSession } from './historyStore';
 import { discardLegacySession, loadLegacySession, loadSession, saveSession } from './storage';
 
 interface SessionApi {
@@ -17,6 +18,7 @@ interface SessionApi {
   recordHand: (draft: HandDraft) => void;
   undo: () => void;
   clearSession: () => void;
+  finishSession: () => void;
   discardLegacy: () => void;
 }
 
@@ -72,6 +74,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       });
     },
     clearSession: () => commit(null),
+    finishSession: () => {
+      setSession((current) => {
+        if (current) archiveSession(current);
+        saveSession(null);
+        return null;
+      });
+    },
     discardLegacy: () => {
       discardLegacySession();
       setLegacy(null);

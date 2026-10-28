@@ -28,5 +28,7 @@ export function navigationAllowlist(base: string): RegExp[] {
     new RegExp(`^${escaped}/kong$`),
     new RegExp(`^${escaped}/settle$`),
     new RegExp(`^${escaped}/legacy$`),
+    new RegExp(`^${escaped}/history$`),
+    new RegExp(`^${escaped}/history/[^/]+$`),
   ];
 }

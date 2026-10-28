@@ -153,6 +153,8 @@ function HongKongSettings({ initial, customId }: { initial: HongKongRules; custo
   const [curve, setCurve] = useState(initial.curve);
   const [factorText, setFactorText] = useState(String(initial.selfDrawFactor));
   const [jackpotEnabled, setJackpotEnabled] = useState(initial.jackpotEnabled);
+  const [anteText, setAnteText] = useState(String(initial.jackpotAnte));
+  const [anteTouched, setAnteTouched] = useState(initial.jackpotAnte !== initial.startScore);
   const [record, setRecord] = useState(initial.recordDealer);
   const [sheet, setSheet] = useState<'count' | 'chong' | null>(null);
   const [savedId, setSavedId] = useState(customId);
@@ -161,7 +163,10 @@ function HongKongSettings({ initial, customId }: { initial: HongKongRules; custo
 
   const startScore = parsePositiveInt(startText);
   const selfDrawFactor = parseFactor(factorText);
-  const draft: HongKongRules | null = startScore !== null && selfDrawFactor !== null
+  const anteNumber = parsePositiveInt(anteTouched ? anteText : startText);
+  const jackpotAnte = anteNumber ?? startScore;
+  const anteError = jackpotEnabled && anteNumber === null ? '入池金額要係正整數' : null;
+  const draft: HongKongRules | null = startScore !== null && selfDrawFactor !== null && jackpotAnte !== null && !anteError
     ? {
         mode: 'hongkong',
         name: name.trim(),
@@ -173,11 +178,13 @@ function HongKongSettings({ initial, customId }: { initial: HongKongRules; custo
         curve,
         selfDrawFactor,
         jackpotEnabled,
+        jackpotAnte,
         recordDealer: record,
         recordWind: record,
       }
     : null;
-  const formError = draft ? rulesError(draft) : (startScore === null ? '起糊分要係正整數' : '自摸倍數要大過 0');
+  const formError = anteError
+    ?? (draft ? rulesError(draft) : (startScore === null ? '起糊分要係正整數' : '自摸倍數要大過 0'));
   const error = nameError || formError;
 
   function confirm() {
@@ -260,6 +267,23 @@ function HongKongSettings({ initial, customId }: { initial: HongKongRules; custo
       </label>
       <h2 className="section-label">Jackpot</h2>
       <Toggle label="Jackpot" caption="啟用" checked={jackpotEnabled} onChange={setJackpotEnabled} />
+      {jackpotEnabled ? (
+        <div className="stack">
+          <label className="inline-field">
+            <span>每人入池</span>
+            <input
+              inputMode="numeric"
+              aria-label="每人入池"
+              value={anteTouched ? anteText : startText}
+              onChange={(event) => {
+                setAnteTouched(true);
+                setAnteText(event.target.value);
+              }}
+            />
+          </label>
+          <p className="hint">每鋪（食糊／流局）每人入池；滿糊攞走成池</p>
+        </div>
+      ) : null}
       <h2 className="section-label">莊家</h2>
       <Toggle label="紀錄莊家及圈風" caption="紀錄莊家及圈風" checked={record} onChange={setRecord} />
       <Field label="玩法名稱">

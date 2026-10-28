@@ -3,6 +3,7 @@ import { HONG_KONG_PRESETS } from '../domain/presets/hongkong';
 import { createSession, recordHand } from '../domain/session';
 import {
   LEGACY_SESSION_STORAGE_KEY,
+  LEGACY_V2_SESSION_KEY,
   SESSION_STORAGE_KEY,
   loadLegacySession,
   loadSession,
@@ -37,7 +38,7 @@ const legacyPayload = {
 };
 
 describe('session storage', () => {
-  it('round-trips an active v2 session', () => {
+  it('round-trips an active v3 session', () => {
     const storage = memoryStorage();
     let session = createSession({
       rules: HONG_KONG_PRESETS[0].rules,
@@ -55,7 +56,7 @@ describe('session storage', () => {
       fan: 3,
     });
     saveSession(session, storage);
-    expect(storage.getItem(SESSION_STORAGE_KEY)).toContain('"version":2');
+    expect(storage.getItem(SESSION_STORAGE_KEY)).toContain('"version":3');
     expect(loadSession(storage)).toEqual(session);
     expect(loadLegacySession(storage)).toBeNull();
   });
@@ -67,7 +68,34 @@ describe('session storage', () => {
     expect(loadLegacySession(storage)?.players.map((player) => player.score)).toEqual([5, -5, 0, 0]);
   });
 
-  it('drops corrupt v2 payloads', () => {
+  it('lifts a v2 session to v3 without inventing jackpot payments', () => {
+    const storage = memoryStorage();
+    const session = createSession({
+      rules: HONG_KONG_PRESETS[0].rules,
+      names: ['玩家1', '玩家2', '玩家3', '玩家4'],
+      dealerSeat: 0,
+    });
+    const stored = {
+      ...session,
+      version: 2,
+      rules: { ...session.rules },
+    };
+    delete (stored as { jackpotPool?: number }).jackpotPool;
+    delete (stored.rules as { jackpotAnte?: number }).jackpotAnte;
+    storage.setItem(LEGACY_V2_SESSION_KEY, JSON.stringify(stored));
+    const loaded = loadSession(storage);
+    expect(loaded?.version).toBe(3);
+    expect(loaded?.jackpotPool).toBe(0);
+    expect(loaded?.rules.mode === 'hongkong' && loaded.rules.jackpotAnte).toBe(4);
+    expect(loaded?.players.map((player) => player.score)).toEqual([0, 0, 0, 0]);
+    expect(storage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+    if (!loaded) throw new Error('loaded');
+    saveSession(loaded, storage);
+    expect(storage.getItem(LEGACY_V2_SESSION_KEY)).toBeNull();
+    expect(storage.getItem(SESSION_STORAGE_KEY)).toContain('"version":3');
+  });
+
+  it('drops corrupt v3 payloads', () => {
     const storage = memoryStorage();
     storage.setItem(SESSION_STORAGE_KEY, '{');
     expect(loadSession(storage)).toBeNull();
